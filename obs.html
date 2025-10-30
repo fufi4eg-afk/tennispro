@@ -98,7 +98,7 @@
             background-color: rgba(0,0,0,0.1); 
         }
 
-        /* --- ДОБАВЛЕННЫЕ СТИЛИ --- */
+        /* --- ИЗМЕНЕННЫЕ СТИЛИ --- */
         .point-state-indicator {
             font-size: 28px;
             font-weight: 700;
@@ -107,11 +107,11 @@
             padding: 6px 15px;
             border-radius: 5px;
             text-align: center;
-            margin-top: 10px; /* Отступ от плашки */
+            /* Убираем margin-top, ставим margin-bottom */
+            margin-bottom: 10px; 
             width: 700px;
             box-sizing: border-box;
             
-            /* Скрываем по умолчанию */
             visibility: hidden;
             opacity: 0;
             transition: opacity 0.3s ease;
@@ -124,6 +124,9 @@
     </style>
 </head>
 <body>
+    
+    <div class="point-state-indicator" id="pointState"></div>
+
     <div class="scoreboard">
         <div class="player-row" id="player1">
             <div class="serve-indicator"></div>
@@ -146,21 +149,21 @@
         </div>
     </div>
 
-    <div class="point-state-indicator" id="pointState"></div>
-
 
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
     <script>
         // --- FIREBASE КОНФИГУРАЦИЯ ---
         const firebaseConfig = {
-            apiKey: "AIzaSyDTxZWC9Txxg4hHkpMkKOoq6eyZ-QHlCt4",
-            authDomain: "gtr-cup-court-2.firebaseapp.com",
-            projectId: "gtr-cup-court-2",
-            storageBucket: "gtr-cup-court-2.firebasestorage.app",
-            messagingSenderId: "5588116973",
-            appId: "1:5588116973:web:f0c9ef08514426b2e633e4"
-        };
+  apiKey: "AIzaSyBsHf3B1on5Wc8aW8Zx1_vnWP6DofaKfyc",
+  authDomain: "tennis-scoreboard-v2.firebaseapp.com",
+  databaseURL: "https://tennis-scoreboard-v2-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "tennis-scoreboard-v2",
+  storageBucket: "tennis-scoreboard-v2.firebasestorage.app",
+  messagingSenderId: "520054718513",
+  appId: "1:520054718513:web:48ec866b4fd2c0e4e51510",
+  measurementId: "G-PPLVDQTSDL"
+};
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
@@ -184,7 +187,6 @@
             games: document.querySelector("#player2 .games"),
             pastSets: document.querySelector("#player2 .past-sets")
         };
-        // --- ДОБАВЛЕНО ---
         const pointStateEl = document.getElementById("pointState");
         const root = document.documentElement;
 
@@ -198,7 +200,6 @@
                 pastSets: [],
                 server: 1,
                 colorAssignment: "default",
-                // --- ДОБАВЛЕНО ---
                 pointState: { text: "none", player: 0 }
             };
             const state = { ...defaultState, ...data };
