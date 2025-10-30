@@ -69,6 +69,7 @@
             align-items: flex-start; 
             text-align: left;
         }
+        /* Для правого игрока */
         #player2 .current-stats {
             align-items: flex-end; 
             text-align: right;
@@ -200,6 +201,7 @@
             .server-select-container h3, .db-management h3 { font-size: 4vw; }
             .server-select-container button, .player-select, .db-management input, .db-management button { font-size: 3.5vw; }
             .history-list { font-size: 5vw; }
+            
             .current-stats { align-items: center; text-align: center; }
             #player2 .current-stats { align-items: center; text-align: center; }
         }
@@ -280,7 +282,7 @@
     <script>
         // --- ЗАЩИТА ПАРОЛЕМ ---
         (function() {
-            const p = "886622"; // Тот же пароль
+            const p = "886622";
             const e = prompt("Введите пароль для доступа к пульту:", "");
             if (e !== p) {
                 alert("Неверный пароль.");
@@ -290,16 +292,14 @@
         })();
 
         // --- FIREBASE КОНФИГУРАЦИЯ ---
-       const firebaseConfig = {
-  apiKey: "AIzaSyBsHf3B1on5Wc8aW8Zx1_vnWP6DofaKfyc",
-  authDomain: "tennis-scoreboard-v2.firebaseapp.com",
-  databaseURL: "https://tennis-scoreboard-v2-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "tennis-scoreboard-v2",
-  storageBucket: "tennis-scoreboard-v2.firebasestorage.app",
-  messagingSenderId: "520054718513",
-  appId: "1:520054718513:web:48ec866b4fd2c0e4e51510",
-  measurementId: "G-PPLVDQTSDL"
-};
+        const firebaseConfig = {
+            apiKey: "AIzaSyDTxZWC9Txxg4hHkpMkKOoq6eyZ-QHlCt4",
+            authDomain: "gtr-cup-court-2.firebaseapp.com",
+            projectId: "gtr-cup-court-2",
+            storageBucket: "gtr-cup-court-2.firebasestorage.app",
+            messagingSenderId: "5588116973",
+            appId: "1:5588116973:web:f0c9ef08514426b2e633e4"
+        };
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
@@ -382,7 +382,9 @@
                 initialServer: 1,      
                 isTiebreak: false,     
                 isSuperTiebreak: false, 
-                colorAssignment: "default"
+                colorAssignment: "default",
+                // --- ДОБАВЛЕНО ---
+                pointState: { text: "none", player: 0 } // player 0 = none, 1 = p1, 2 = p2
             };
         }
 
@@ -430,7 +432,6 @@
             if (!gameState) return;
             
             const pIdx = player - 1;
-            const oIdx = 1 - pIdx; 
             
             if (gameState.sets[0] === 2 || gameState.sets[1] === 2) {
                 alert("Матч уже окончен. Начните новую игру.");
@@ -438,39 +439,33 @@
             }
 
             if (gameState.isTiebreak || gameState.isSuperTiebreak) {
-                
                 gameState.scores[pIdx]++; 
-                
                 const [s1, s2] = gameState.scores;
                 const totalPoints = s1 + s2;
-                
                 const targetPoints = gameState.isSuperTiebreak ? 10 : 7;
                 
                 if ((s1 >= targetPoints && s1 - s2 >= 2) || (s2 >= targetPoints && s2 - s1 >= 2)) {
                     winSet(player); 
                 } else {
-                    // Смена подачи: 1-я, 3-я, 5-я, 7-я... (т.е. после КАЖДОГО нечетного очка)
                     if (totalPoints % 2 === 1) {
                          gameState.server = (gameState.server === 1 ? 2 : 1);
                     }
                 }
-                
-                saveState();
-                return; 
-            }
-
-            const currentScore = gameState.scores[pIdx];
-            
-            if (currentScore === "0") {
-                gameState.scores[pIdx] = "15";
-            } else if (currentScore === "15") {
-                gameState.scores[pIdx] = "30";
-            } else if (currentScore === "30") {
-                gameState.scores[pIdx] = "40";
-            } else if (currentScore === "40") {
-                winGame(player);
+            } else {
+                const currentScore = gameState.scores[pIdx];
+                if (currentScore === "0") {
+                    gameState.scores[pIdx] = "15";
+                } else if (currentScore === "15") {
+                    gameState.scores[pIdx] = "30";
+                } else if (currentScore === "30") {
+                    gameState.scores[pIdx] = "40";
+                } else if (currentScore === "40") {
+                    winGame(player);
+                }
             }
             
+            // --- ДОБАВЛЕНО ---
+            updatePointState(); // Проверяем состояние после каждого очка
             saveState();
         }
         
@@ -481,37 +476,33 @@
             if (gameState.isTiebreak || gameState.isSuperTiebreak) {
                 if(gameState.scores[pIdx] > 0) {
                     gameState.scores[pIdx]--;
-                    // Откат подачи (упрощенный, просто переключаем назад, если надо)
                     const [s1, s2] = gameState.scores;
                     const totalPoints = s1 + s2;
-                    // Если мы откатили на нечетное очко (0, 2, 4...), надо вернуть подачу
                     if (totalPoints % 2 === 0) {
                          gameState.server = (gameState.server === 1 ? 2 : 1);
                     }
                 }
-                saveState();
-                return;
-            }
-
-            const currentScore = gameState.scores[pIdx];
-            if (currentScore === "40") {
-                gameState.scores[pIdx] = "30";
-            } else if (currentScore === "30") {
-                gameState.scores[pIdx] = "15";
-            } else if (currentScore === "15") {
-                gameState.scores[pIdx] = "0";
+            } else {
+                const currentScore = gameState.scores[pIdx];
+                if (currentScore === "40") {
+                    gameState.scores[pIdx] = "30";
+                } else if (currentScore === "30") {
+                    gameState.scores[pIdx] = "15";
+                } else if (currentScore === "15") {
+                    gameState.scores[pIdx] = "0";
+                }
             }
             
+            // --- ДОБАВЛЕНО ---
+            updatePointState(); // Проверяем состояние и при откате
             saveState();
         }
         
         function winGame(player) {
-            const pIdx = player - 1;
-            const oIdx = 1 - pIdx;
-
-            gameState.games[pIdx]++; 
+            gameState.games[player - 1]++; 
             gameState.scores = ["0", "0"]; 
-            gameState.server = (gameState.server === 1 ? 2 : 1); // Смена подающего на СЛЕДУЮЩИЙ гейм
+            gameState.server = (gameState.server === 1 ? 2 : 1); 
+            gameState.pointState = { text: "none", player: 0 }; // Сброс
 
             const [g1, g2] = gameState.games;
 
@@ -519,35 +510,26 @@
                 winSet(player);
             }
             else if (g1 === 6 && g2 === 6 && !gameState.isSuperTiebreak) {
-                // Начинаем обычный тай-брейк
                 gameState.isTiebreak = true;
                 gameState.scores = [0, 0]; 
-                // Подающий УЖЕ правильный (тот, кто принимал этот гейм)
-                // Нам нужно просто запомнить его для логики смены подач
-                // **ИСПРАВЛЕНИЕ 1:**
                 gameState.initialServer = gameState.server; 
             }
         }
 
         function winSet(player) {
-            const pIdx = player - 1;
-            
-            gameState.sets[pIdx]++; 
+            gameState.sets[player - 1]++; 
 
             let p1_score, p2_score;
             if (gameState.isTiebreak || gameState.isSuperTiebreak) {
-                p1_score = gameState.isTiebreak ? (pIdx === 0 ? 7 : 6) : gameState.scores[0]; 
-                p2_score = gameState.isTiebreak ? (pIdx === 1 ? 7 : 6) : gameState.scores[1];
-                
+                p1_score = gameState.isTiebreak ? (player === 1 ? 7 : 6) : gameState.scores[0]; 
+                p2_score = gameState.isTiebreak ? (player === 2 ? 7 : 6) : gameState.scores[1];
                 gameState.games = [p1_score > p2_score ? 7 : 6, p1_score > p2_score ? 6 : 7];
 
                 if(gameState.isSuperTiebreak) {
                      gameState.pastSets.push({ p1: gameState.scores[0], p2: gameState.scores[1] });
                 } else {
-                     // Записываем очки тай-брейка в историю для 7-6
                      gameState.pastSets.push({ p1: gameState.games[0], p2: gameState.games[1] });
                 }
-
             } else {
                 gameState.pastSets.push({ p1: gameState.games[0], p2: gameState.games[1] });
             }
@@ -555,23 +537,86 @@
             gameState.games = [0, 0];
             gameState.scores = ["0", "0"];
             gameState.isTiebreak = false;
+            gameState.pointState = { text: "none", player: 0 }; // Сброс
             
             const [s1, s2] = gameState.sets;
 
             if (s1 === 2 || s2 === 2) {
                 gameState.isSuperTiebreak = false; 
-                alert(`Матч окончен! Победа ${gameState.names[pIdx]}`);
+                alert(`Матч окончен! Победа ${gameState.names[player - 1]}`);
             } 
             else if (s1 === 1 && s2 === 1) {
-                // Начинаем СУПЕР ТАЙ-БРЕЙК
                 gameState.isSuperTiebreak = true;
                 gameState.scores = [0, 0]; 
-                // Подающий УЖЕ правильный (определен в winGame -> winSet)
-                // **ИСПРАВЛЕНИЕ 2:**
                 gameState.initialServer = gameState.server; 
             }
         }
 
+        // --- НОВАЯ ФУНКЦИЯ ---
+        function updatePointState() {
+            // Сначала сбрасываем
+            gameState.pointState = { text: "none", player: 0 };
+
+            const [s1_str, s2_str] = gameState.scores;
+            const [g1, g2] = gameState.games;
+            const [set1, set2] = gameState.sets;
+            const server = gameState.server;
+            const receiver = server === 1 ? 2 : 1;
+
+            // --- 1. Логика Тай-брейка ---
+            if (gameState.isTiebreak || gameState.isSuperTiebreak) {
+                const [s1, s2] = [parseInt(s1_str), parseInt(s2_str)];
+                const target = gameState.isSuperTiebreak ? 10 : 7;
+                
+                const p1_isWinning = (s1 >= target - 1 && s1 > s2);
+                const p2_isWinning = (s2 >= target - 1 && s2 > s1);
+                
+                if (!p1_isWinning && !p2_isWinning) return; // Никто не в 1 очке от победы
+
+                let playerWithPoint = p1_isWinning ? 1 : 2;
+                
+                if (gameState.isSuperTiebreak) { 
+                    gameState.pointState = { text: "Match Point", player: playerWithPoint };
+                } 
+                else if ( (set1 === 1 && p1_isWinning) || (set2 === 1 && p2_isWinning) ) {
+                    gameState.pointState = { text: "Match Point", player: playerWithPoint };
+                }
+                // (Мы игнорируем "Set Point" по твоему запросу)
+                return;
+            }
+
+            // --- 2. Логика Обычного Гейма (No-Ad) ---
+            if (s1_str !== "40" && s2_str !== "40") return; // Никто не на "40"
+
+            let winningPlayerIdx = -1; // 0 for P1, 1 for P2
+            let pointType = ""; // "Game Point", "Break Point"
+
+            if (s1_str === "40" && s2_str === "40") {
+                // 40-40 (No-Ad): У принимающего Брейк-поинт.
+                winningPlayerIdx = receiver - 1;
+                pointType = "Break Point";
+            } else if (s1_str === "40" && s2_str !== "40") {
+                winningPlayerIdx = 0; // P1
+                pointType = (server === 1) ? "Game Point" : "Break Point";
+            } else if (s2_str === "40" && s1_str !== "40") {
+                winningPlayerIdx = 1; // P2
+                pointType = (server === 2) ? "Game Point" : "Break Point";
+            }
+
+            if (winningPlayerIdx === -1) return;
+
+            // --- 3. Проверяем, не Матч-поинт ли это ---
+            const pW_g = gameState.games[winningPlayerIdx];
+            const pL_g = gameState.games[1 - winningPlayerIdx];
+            // Условие победы в сете: (5-4, 5-3, и т.д.) ИЛИ (6-5)
+            const isSetWinningGame = (pW_g >= 5 && pW_g > pL_g) || (pW_g === 6 && pL_g === 5);
+
+            if (gameState.sets[winningPlayerIdx] === 1 && isSetWinningGame) {
+                gameState.pointState = { text: "Match Point", player: winningPlayerIdx + 1 };
+            } else {
+                gameState.pointState = { text: pointType, player: winningPlayerIdx + 1 };
+            }
+        }
 
         // --- ОБНОВЛЕНИЕ ОТОБРАЖЕНИЯ (Display) ---
         function updateDisplay(data) {
@@ -638,7 +683,6 @@
         });
 
         document.addEventListener("DOMContentLoaded", loadPlayers);
-
     </script>
 </body>
 </html>
