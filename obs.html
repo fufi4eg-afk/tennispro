@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>OBS (Большой Теннис)</title>
+    <style>
+        :root {
+            --p1-color: #000000;
+            --p2-color: #20B2AA;
+            --p1-font-color: #FFFFFF;
+            --p2-font-color: #000000;
+            --accent-yellow: #f4c724;
+            --neutral-bg: #333;
+            --font-color: #FFFFFF;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            background-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            user-select: none;
+            color: var(--font-color);
+            font-weight: 700;
+        }
+        .scoreboard {
+            width: 700px;
+            border-radius: 10px;
+            overflow: hidden;
+            background-color: var(--neutral-bg);
+            border: 2px solid #555;
+        }
+        .player-row {
+            display: flex;
+            align-items: center;
+            height: 50px;
+            font-size: 24px;
+        }
+        #player1 {
+            background-color: var(--p1-color);
+            color: var(--p1-font-color);
+        }
+        #player2 {
+            background-color: var(--p2-color);
+            color: var(--p2-font-color);
+        }
+        
+        .serve-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: var(--accent-yellow);
+            margin: 0 10px;
+            visibility: hidden;
+        }
+        .serve-active {
+            visibility: visible;
+        }
+        
+        .name {
+            flex-grow: 1;
+            padding: 0 10px;
+        }
+        
+        .scores-container {
+            display: flex;
+            height: 100%;
+        }
+        
+        .score-box {
+            width: 50px;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
+            border-left: 2px solid #555;
+        }
+
+        /* Очки в гейме - самый правый блок */
+        .score {
+            width: 60px;
+            background-color: var(--neutral-bg);
+            color: var(--font-color);
+        }
+        
+        /* Геймы */
+        .games {
+             color: var(--accent-yellow);
+        }
+        
+        /* История сетов */
+        .past-sets {
+            display: flex;
+            height: 100%;
+        }
+        .past-set {
+            width: 50px;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
+            border-left: 2px solid #555;
+            background-color: rgba(0,0,0,0.1); /* Чуть темнее фона */
+        }
+
+    </style>
+</head>
+<body>
+    <div class="scoreboard">
+        <div class="player-row" id="player1">
+            <div class="serve-indicator"></div>
+            <div class="name">Игрок 1</div>
+            <div class="scores-container">
+                <div class="past-sets">
+                    </div>
+                <div class="score-box games">0</div>
+                <div class="score-box score">0</div>
+            </div>
+        </div>
+        
+        <div class="player-row" id="player2">
+            <div class="serve-indicator"></div>
+            <div class="name">Игрок 2</div>
+            <div class="scores-container">
+                <div class="past-sets">
+                    </div>
+                <div class="score-box games">0</div>
+                <div class="score-box score">0</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+    <script>
+        // --- FIREBASE КОНФИГУРАЦИЯ ---
+        const firebaseConfig = {
+  apiKey: "AIzaSyBsHf3B1on5Wc8aW8Zx1_vnWP6DofaKfyc",
+  authDomain: "tennis-scoreboard-v2.firebaseapp.com",
+  databaseURL: "https://tennis-scoreboard-v2-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "tennis-scoreboard-v2",
+  storageBucket: "tennis-scoreboard-v2.firebasestorage.app",
+  messagingSenderId: "520054718513",
+  appId: "1:520054718513:web:48ec866b4fd2c0e4e51510",
+  measurementId: "G-PPLVDQTSDL"
+};
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // --- ПУТЬ К ДАННЫМ ТЕННИСА ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const tableId = urlParams.get('table') || '1';
+        const firebasePath = `gameState_Tennis_Table${tableId}`;
+        const stateRef = database.ref(firebasePath);
+
+        // --- ЭЛЕМЕНТЫ DOM ---
+        const p1 = {
+            name: document.querySelector("#player1 .name"),
+            serve: document.querySelector("#player1 .serve-indicator"),
+            score: document.querySelector("#player1 .score"),
+            games: document.querySelector("#player1 .games"),
+            pastSets: document.querySelector("#player1 .past-sets")
+        };
+        const p2 = {
+            name: document.querySelector("#player2 .name"),
+            serve: document.querySelector("#player2 .serve-indicator"),
+            score: document.querySelector("#player2 .score"),
+            games: document.querySelector("#player2 .games"),
+            pastSets: document.querySelector("#player2 .past-sets")
+        };
+        
+        const root = document.documentElement;
+
+        // --- ОБНОВЛЕНИЕ ОТОБРАЖЕНИЯ ---
+        function updateDisplay(data) {
+            const defaultState = {
+                names: ["Игрок 1", "Игрок 2"],
+                scores: ["0", "0"],
+                games: [0, 0],
+                sets: [0, 0],
+                pastSets: [],
+                server: 1,
+                colorAssignment: "default"
+            };
+            const state = { ...defaultState, ...data };
+
+            // Имена
+            p1.name.textContent = state.names[0];
+            p2.name.textContent = state.names[1];
+            
+            // Подача
+            p1.serve.classList.toggle("serve-active", state.server === 1);
+            p2.serve.classList.toggle("serve-active", state.server === 2);
+
+            // Очки (в гейме или тай-брейке)
+            p1.score.textContent = state.scores[0];
+            p2.score.textContent = state.scores[1];
+
+            // Геймы
+            p1.games.textContent = state.games[0];
+            p2.games.textContent = state.games[1];
+            
+            // История сетов
+            p1.pastSets.innerHTML = "";
+            p2.pastSets.innerHTML = "";
+            state.pastSets.forEach(set => {
+                const setEl_p1 = document.createElement("span");
+                setEl_p1.className = "past-set";
+                setEl_p1.textContent = set.p1;
+                p1.pastSets.appendChild(setEl_p1);
+                
+                const setEl_p2 = document.createElement("span");
+                setEl_p2.className = "past-set";
+                setEl_p2.textContent = set.p2;
+                p2.pastSets.appendChild(setEl_p2);
+            });
+
+            // Цвета
+            const color1 = "#000000";
+            const color2 = "#20B2AA";
+            const fontColor1 = "#FFFFFF";
+            const fontColor2 = "#000000";
+
+            if (state.colorAssignment === "swapped") {
+                root.style.setProperty('--p1-color', color2);
+                root.style.setProperty('--p1-font-color', fontColor2);
+                root.style.setProperty('--p2-color', color1);
+                root.style.setProperty('--p2-font-color', fontColor1);
+            } else {
+                root.style.setProperty('--p1-color', color1);
+                root.style.setProperty('--p1-font-color', fontColor1);
+                root.style.setProperty('--p2-color', color2);
+                root.style.setProperty('--p2-font-color', fontColor2);
+            }
+        }
+
+        // --- ЗАПУСК ---
+        stateRef.on("value", snapshot => {
+            updateDisplay(snapshot.val());
+        });
+    </script>
+</body>
+</html>
