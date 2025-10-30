@@ -75,20 +75,14 @@
             box-sizing: border-box;
             border-left: 2px solid #555;
         }
-
-        /* Очки в гейме - самый правый блок */
         .score {
             width: 60px;
             background-color: var(--neutral-bg);
             color: var(--font-color);
         }
-        
-        /* Геймы */
         .games {
              color: var(--accent-yellow);
         }
-        
-        /* История сетов */
         .past-sets {
             display: flex;
             height: 100%;
@@ -101,7 +95,30 @@
             align-items: center;
             box-sizing: border-box;
             border-left: 2px solid #555;
-            background-color: rgba(0,0,0,0.1); /* Чуть темнее фона */
+            background-color: rgba(0,0,0,0.1); 
+        }
+
+        /* --- ДОБАВЛЕННЫЕ СТИЛИ --- */
+        .point-state-indicator {
+            font-size: 28px;
+            font-weight: 700;
+            color: #fff;
+            background-color: #d32f2f; /* Ярко-красный */
+            padding: 6px 15px;
+            border-radius: 5px;
+            text-align: center;
+            margin-top: 10px; /* Отступ от плашки */
+            width: 700px;
+            box-sizing: border-box;
+            
+            /* Скрываем по умолчанию */
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .point-state-active {
+            visibility: visible;
+            opacity: 1;
         }
 
     </style>
@@ -112,8 +129,7 @@
             <div class="serve-indicator"></div>
             <div class="name">Игрок 1</div>
             <div class="scores-container">
-                <div class="past-sets">
-                    </div>
+                <div class="past-sets"></div>
                 <div class="score-box games">0</div>
                 <div class="score-box score">0</div>
             </div>
@@ -123,32 +139,31 @@
             <div class="serve-indicator"></div>
             <div class="name">Игрок 2</div>
             <div class="scores-container">
-                <div class="past-sets">
-                    </div>
+                <div class="past-sets"></div>
                 <div class="score-box games">0</div>
                 <div class="score-box score">0</div>
             </div>
         </div>
     </div>
 
+    <div class="point-state-indicator" id="pointState"></div>
+
+
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
     <script>
         // --- FIREBASE КОНФИГУРАЦИЯ ---
         const firebaseConfig = {
-  apiKey: "AIzaSyBsHf3B1on5Wc8aW8Zx1_vnWP6DofaKfyc",
-  authDomain: "tennis-scoreboard-v2.firebaseapp.com",
-  databaseURL: "https://tennis-scoreboard-v2-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "tennis-scoreboard-v2",
-  storageBucket: "tennis-scoreboard-v2.firebasestorage.app",
-  messagingSenderId: "520054718513",
-  appId: "1:520054718513:web:48ec866b4fd2c0e4e51510",
-  measurementId: "G-PPLVDQTSDL"
-};
+            apiKey: "AIzaSyDTxZWC9Txxg4hHkpMkKOoq6eyZ-QHlCt4",
+            authDomain: "gtr-cup-court-2.firebaseapp.com",
+            projectId: "gtr-cup-court-2",
+            storageBucket: "gtr-cup-court-2.firebasestorage.app",
+            messagingSenderId: "5588116973",
+            appId: "1:5588116973:web:f0c9ef08514426b2e633e4"
+        };
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        // --- ПУТЬ К ДАННЫМ ТЕННИСА ---
         const urlParams = new URLSearchParams(window.location.search);
         const tableId = urlParams.get('table') || '1';
         const firebasePath = `gameState_Tennis_Table${tableId}`;
@@ -169,7 +184,8 @@
             games: document.querySelector("#player2 .games"),
             pastSets: document.querySelector("#player2 .past-sets")
         };
-        
+        // --- ДОБАВЛЕНО ---
+        const pointStateEl = document.getElementById("pointState");
         const root = document.documentElement;
 
         // --- ОБНОВЛЕНИЕ ОТОБРАЖЕНИЯ ---
@@ -181,27 +197,21 @@
                 sets: [0, 0],
                 pastSets: [],
                 server: 1,
-                colorAssignment: "default"
+                colorAssignment: "default",
+                // --- ДОБАВЛЕНО ---
+                pointState: { text: "none", player: 0 }
             };
             const state = { ...defaultState, ...data };
 
-            // Имена
             p1.name.textContent = state.names[0];
             p2.name.textContent = state.names[1];
-            
-            // Подача
             p1.serve.classList.toggle("serve-active", state.server === 1);
             p2.serve.classList.toggle("serve-active", state.server === 2);
-
-            // Очки (в гейме или тай-брейке)
             p1.score.textContent = state.scores[0];
             p2.score.textContent = state.scores[1];
-
-            // Геймы
             p1.games.textContent = state.games[0];
             p2.games.textContent = state.games[1];
             
-            // История сетов
             p1.pastSets.innerHTML = "";
             p2.pastSets.innerHTML = "";
             state.pastSets.forEach(set => {
@@ -215,12 +225,22 @@
                 setEl_p2.textContent = set.p2;
                 p2.pastSets.appendChild(setEl_p2);
             });
+            
+            // --- ЛОГИКА ДЛЯ БАННЕРА ---
+            if (state.pointState.text !== "none" && state.pointState.player !== 0) {
+                const playerName = state.names[state.pointState.player - 1];
+                pointStateEl.textContent = `${state.pointState.text} - ${playerName}`;
+                pointStateEl.classList.add("point-state-active");
+            } else {
+                pointStateEl.textContent = "";
+                pointStateEl.classList.remove("point-state-active");
+            }
 
             // Цвета
-            const color1 = "#000000";
-            const color2 = "#20B2AA";
-            const fontColor1 = "#FFFFFF";
-            const fontColor2 = "#000000";
+            const color1 = "#000";
+            const color2 = "#20b2aa";
+            const fontColor1 = "#fff";
+            const fontColor2 = "#000";
 
             if (state.colorAssignment === "swapped") {
                 root.style.setProperty('--p1-color', color2);
